@@ -147,5 +147,14 @@ export enum SEvent {
 
   ATTACHMENT_UPLOAD = 'attachment:upload',
   ATTACHMENT_REMOVE = 'attachment:remove',
-  ATTACHMENT_GET = 'attachment:get'
+  ATTACHMENT_GET = 'attachment:get',
+  ATTACHMENT_CACHE = 'attachment:cache',
+}
+
+export enum LTitle {
+  ATTACHMENT_FILE_CREATE = 'attachment:file:create',
+  ATTACHMENT_FILE_WRITE = 'attachment:file:write',
+  ATTACHMENT_FILE_GET = 'attachment:file:get',
+  ATTACHMENT_FILE_READ = 'attachment:file:read',
+  ATTACHMENT_FILE_HAS_ID = 'attachment:file:has:id',
 }

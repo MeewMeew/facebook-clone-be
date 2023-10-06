@@ -7,6 +7,8 @@ import { File, IComment, IReaction, NotificationType, SEvent } from "./types.js"
 import FormData from "form-data";
 import axios from "axios";
 import { v4 as uuidv4 } from 'uuid'
+import { fileTypeFromBuffer } from 'file-type';
+import { AttachmentLocal } from './localdb.js';
 
 const telegramToken = process.env.TELEGRAM_TOKEN || ''
 const telegramChatID = process.env.TELEGRAM_CHAT_ID || ''
@@ -47,6 +49,7 @@ export class Socket {
       socket.on(SEvent.ATTACHMENT_UPLOAD, this.onAttachmentUpload)
       socket.on(SEvent.ATTACHMENT_REMOVE, this.onAttachmentRemove)
       socket.on(SEvent.ATTACHMENT_GET, this.onAttachmentGet)
+      socket.on(SEvent.ATTACHMENT_CACHE, this.onAttachmentCache)
     })
 
 
@@ -138,11 +141,11 @@ export class Socket {
     Logger.success(`[${SEvent.POST_REACTION_REMOVE}] ${reaction.uid} remove react to ${reaction.aid}`)
   }
 
-  private async onAttachmentUpload(payload: File, callback: Function) {
-    const fileType = payload.type.split('/')[1]
-    const fileName = uuidv4() + '.' + fileType
-    Logger.debug(this.debug, `[${SEvent.ATTACHMENT_UPLOAD}] ${fileName}`)
+  private async onAttachmentUpload(payload: Buffer, callback: Function) {
+    const result = await fileTypeFromBuffer(payload)
+    const fileName = uuidv4() + '.' + result?.ext || 'png'
     const form = new FormData()
+    Logger.debug(this.debug, `[${SEvent.ATTACHMENT_UPLOAD}] ${fileName}`)
 
     form.append('chat_id', telegramChatID)
     form.append('photo', payload, { filename: fileName })
@@ -158,7 +161,7 @@ export class Socket {
       })
 
       if (res.data) {
-        const photos = (res.data.result.photo as any[]).sort((a, b) => b.file_size - a.file_size)
+        const photos = (res.data.result.photo as any[]).sort((a, b) => b.file_size - a.file_size).slice(0, 3)
         type FileSize = 'large' | 'medium' | 'small'
         const attachments = {} as Record<FileSize, string>
         photos.forEach((photo, index) => {
@@ -190,14 +193,14 @@ export class Socket {
     Logger.info(`[${SEvent.ATTACHMENT_REMOVE}] ${attachment}`)
   }
 
-  private async onAttachmentGet(attachment: string, callback: Function) {
+  private async onAttachmentGet(attachment_id: string, callback: Function) {
     try {
-      Logger.debug(this.debug, `[${SEvent.ATTACHMENT_GET}] ${attachment}`)
+      Logger.debug(this.debug, `[${SEvent.ATTACHMENT_GET}] ${attachment_id}`)
       const res = await axios({
         method: 'GET',
         url: `https://api.telegram.org/bot${telegramToken}/getFile`,
         params: {
-          file_id: attachment
+          file_id: attachment_id
         }
       })
       if (res.data?.ok) {
@@ -208,14 +211,28 @@ export class Socket {
           responseType: 'arraybuffer'
         })
         const base64 = Buffer.from(file.data, 'binary').toString('base64')
-        Logger.success(`[${SEvent.ATTACHMENT_GET}] ${attachment}`)
-        return callback({ attachment: `data:image/${res.data.result.file_path.split('.')[1]};base64,${base64}`, error: null })
+        Logger.success(`[${SEvent.ATTACHMENT_GET}] ${attachment_id}`)
+        const dataURL = `data:image/${res.data.result.file_path.split('.')[1]};base64,${base64}`
+        await AttachmentLocal.write(attachment_id, dataURL)
+        return callback({ attachment: dataURL, error: null })
       } else {
         Logger.error(`[${SEvent.ATTACHMENT_GET}] ${res.data}`)
         return callback({ attachment: null, error: 'Cannot get image' })
       }
     } catch (error) {
       Logger.error(`[${SEvent.ATTACHMENT_GET}] ${error}`)
+      return callback({ attachment: null, error: 'Failed to get image' })
+    }
+  }
+
+  private async onAttachmentCache(attachment_id: string, callback: Function) {
+    try {
+      const has = await AttachmentLocal.has(attachment_id)
+      Logger.debug(this.debug, `[${SEvent.ATTACHMENT_CACHE}] ${attachment_id}`)
+      return callback({ cache: has, error: null })
+      
+    } catch (error) {
+      Logger.error(`[${SEvent.ATTACHMENT_CACHE}] ${error}`)
       return callback({ attachment: null, error: 'Failed to get image' })
     }
   }
