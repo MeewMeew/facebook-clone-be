@@ -1,7 +1,11 @@
 import 'dotenv/config'
 
+import fs from 'fs'
+import path from 'path'
 import express from 'express'
 import cors from 'cors'
+import http from 'http'
+import https from 'https'
 import { Server } from 'socket.io'
 import { Socket } from './socket.js'
 import { Logger } from './logger.js'
@@ -51,27 +55,42 @@ export class App {
       if (!result) return res.end()
       return res.end(result.buffer)
     })
-
-
     
-    const server = app.listen(this.port, () => {
-      Logger.info(`[server] Server is running on port ${this.port}`)
-    })
-    
-    const io = new Server(server, {
-      cors: {
-        origin: process.env.CORS || '*',
-        methods: ['GET', 'POST']
-      },
-      maxHttpBufferSize: 1e7 // 10MB
-    })
+    const server = this.createServer(app)
     
     if (args.includes('--debug')) {
       this.debug = true
       Logger.warn(`[server] Debug mode is enabled`)
     }
     
-    new Socket(io, this.debug)
+    new Socket(new Server(server, {
+      cors: {
+        origin: process.env.CORS || '*',
+        methods: ['GET', 'POST']
+      },
+      maxHttpBufferSize: 1e7
+    }), this.debug)
+
+    server.listen(this.port, () => {
+      Logger.info(`[server] Server is listening on port ${this.port}`)
+    })
+  }
+
+  private loadSSL() {
+    if (fs.existsSync(path.join(__dirname, '../ssl/server.key')) && fs.existsSync(path.join(__dirname, '../ssl/server.crt'))) {
+      return {
+        key: fs.readFileSync(path.join(__dirname, '../ssl/server.key')),
+        cert: fs.readFileSync(path.join(__dirname, '../ssl/server.crt'))
+      }
+    }
+  }
+
+  private createServer(app: express.Express) {
+    const ssl = this.loadSSL()
+    if (ssl) {
+      return https.createServer(ssl, app)
+    }
+    return http.createServer(app)
   }
 }
 
