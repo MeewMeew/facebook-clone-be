@@ -1,9 +1,9 @@
 import 'dotenv/config'
 import { Server, Socket as SocketConnect, Namespace } from "socket.io";
-import * as _ from 'lodash-es'
+import _ from 'lodash'
 import { Logger } from "./logger.js";
 import { Friend, Notification } from "./database.js";
-import { File, IComment, IReaction, NotificationType, SEvent } from "./types.js";
+import { IComment, IReaction, IFriendEvent, NotificationType, FriendEventType, SEvent } from "./types.js";
 import FormData from "form-data";
 import axios from "axios";
 import { v4 as uuidv4 } from 'uuid'
@@ -25,25 +25,24 @@ export class Socket {
 
 
       // when user connect to socket
-      socket.on(SEvent.USER_ONLINE, this.onOnline(socket))
-      socket.on(SEvent.USER_OFFLINE, this.onDisconnect(socket))
+      socket.on(SEvent.USER_ONLINE, this.onOnline(socket, this.mewbook))
+      socket.on(SEvent.USER_OFFLINE, this.onDisconnect(socket, this.mewbook))
       socket.on(SEvent.SOCKET_DISCONNECT, () => Logger.info(`[${SEvent.SOCKET_DISCONNECT}] ID ${socket.id}`))
 
       // when user do something
       // with post
-      socket.on(SEvent.POST_COMMENT_ADD, this.onPostCommentAdd)
-      socket.on(SEvent.POST_COMMENT_REMOVE, this.onPostCommentRemove)
-      socket.on(SEvent.POST_REACTION_ADD, this.onPostReactionAdd)
-      socket.on(SEvent.POST_REACTION_UPDATE, this.onPostReactionUpdate)
-      socket.on(SEvent.POST_REACTION_REMOVE, this.onPostReactionRemove)
+      socket.on(SEvent.POST_COMMENT_ADD, this.onPostCommentAdd(this.mewbook))
+      socket.on(SEvent.POST_COMMENT_REMOVE, this.onPostCommentRemove(this.mewbook))
+      socket.on(SEvent.POST_REACTION_ADD, this.onPostReactionAdd(this.mewbook))
+      socket.on(SEvent.POST_REACTION_UPDATE, this.onPostReactionUpdate(this.mewbook))
+      socket.on(SEvent.POST_REACTION_REMOVE, this.onPostReactionRemove(this.mewbook))
 
       // // with friend
-      // socket.on(SEvent.FRIEND_REQUEST, this.onFriendRequest)
-      // socket.on(SEvent.FRIEND_ACCEPT, this.onFriendAccept)
-      // socket.on(SEvent.FRIEND_REMOVE, this.onFriendRemove)
-
-      // // with notification
-      // socket.on(SEvent.NOTIFICATION_READ, this.onNotificationRead)
+      socket.on(SEvent.FRIEND_REQUEST, this.onFriendRequest(this.mewbook))
+      socket.on(SEvent.FRIEND_ACCEPT, this.onFriendAccept(this.mewbook))
+      socket.on(SEvent.FRIEND_REMOVE, this.onFriendRemove(this.mewbook))
+      socket.on(SEvent.FRIEND_REJECT, this.onFriendReject(this.mewbook))
+      socket.on(SEvent.FRIEND_CANCEL, this.onFriendCancel(this.mewbook))
 
       // with attachment
       socket.on(SEvent.ATTACHMENT_UPLOAD, this.onAttachmentUpload)
@@ -51,94 +50,153 @@ export class Socket {
       socket.on(SEvent.ATTACHMENT_GET, this.onAttachmentGet)
       socket.on(SEvent.ATTACHMENT_CACHE, this.onAttachmentCache)
     })
-
-
   }
 
-  private onOnline(socket: SocketConnect) {
+  private onOnline(socket: SocketConnect, mewbook: Namespace) {
     return async (userID: number) => {
       Logger.debug(this.debug, `[${SEvent.USER_ONLINE}] ID ${userID}`)
       if (!userID) return
       if (socket.rooms.has(userID.toString())) return
-
       socket.join(userID.toString())
-
       const fs = await Friend.getByUID(userID)
       if (!fs) return
       for (const f of fs.friends) {
-        this.mewbook.to(f).emit(SEvent.FRIEND_ONLINE, userID)
+        mewbook.to(f).emit(SEvent.FRIEND_ONLINE, userID)
       }
       Logger.info(`[${SEvent.USER_ONLINE}] ID ${userID}`)
     }
   }
 
-  private onDisconnect(socket: SocketConnect) {
+  private onDisconnect(socket: SocketConnect, mewbook: Namespace) {
     return async (userID: number) => {
       Logger.debug(this.debug, `[${SEvent.USER_OFFLINE}] ID ${userID}`)
       if (!userID) return
       if (!socket.rooms.has(userID.toString())) return
-
       socket.leave(userID.toString())
-
       const fs = await Friend.getByUID(userID)
       if (!fs) return
       for (const f of fs.friends) {
-        this.mewbook.to(f).emit(SEvent.FRIEND_OFFLINE, userID)
+        mewbook.to(f).emit(SEvent.FRIEND_OFFLINE, userID)
       }
       Logger.info(`[${SEvent.USER_OFFLINE}] ID ${userID}`)
     }
   }
 
-  private async onPostCommentAdd(comment: IComment) {
-    Logger.debug(this.debug, `[${SEvent.POST_COMMENT_ADD}] ${comment.uid} comment to ${comment.aid}`)
-    if (!comment) return
-    if (comment.aid === comment.uid) return
-    const notiData = await Notification.create(comment, NotificationType.POST_COMMENT)
-    this.mewbook.to(comment.aid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
-    Logger.success(`[${SEvent.POST_COMMENT_ADD}] ${comment.uid} comment to ${comment.aid}`)
+  private onPostCommentAdd(mewbook: Namespace) {
+    return async (comment: IComment) => {
+      Logger.debug(this.debug, `[${SEvent.POST_COMMENT_ADD}] ${comment.uid} comment to ${comment.aid}`)
+      if (!comment) return
+      if (comment.aid === comment.uid) return
+      const notiData = await Notification.create(comment, NotificationType.POST_COMMENT)
+      mewbook.to(comment.aid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.POST_COMMENT_ADD}] ${comment.uid} comment to ${comment.aid}`)
+    }
   }
 
-  private async onPostCommentRemove(comment: IComment) {
-    Logger.debug(this.debug, `[${SEvent.POST_COMMENT_REMOVE}] ${comment.uid} remove comment to ${comment.aid}`)
-    if (!comment) return
-    if (comment.aid === comment.uid) return
-    const notiData = await Notification.getByDataID(comment.id)
-    if (!notiData) return
-    await Notification.remove(notiData.nid)
-    this.mewbook.to(comment.aid.toString()).emit(SEvent.NOTIFICATION_REMOVE, notiData)
-    Logger.success(`[${SEvent.POST_COMMENT_REMOVE}] ${comment.uid} remove comment to ${comment.aid}`)
+  private onPostCommentRemove(mewbook: Namespace) {
+    return async (comment: IComment) => {
+      Logger.debug(this.debug, `[${SEvent.POST_COMMENT_REMOVE}] ${comment.uid} remove comment to ${comment.aid}`)
+      if (!comment) return
+      if (comment.aid === comment.uid) return
+      const notiData = await Notification.getByDataID(comment.id)
+      if (!notiData) return
+      await Notification.remove(notiData.nid)
+      mewbook.to(comment.aid.toString()).emit(SEvent.NOTIFICATION_REMOVE, notiData)
+      Logger.success(`[${SEvent.POST_COMMENT_REMOVE}] ${comment.uid} remove comment to ${comment.aid}`)
+    }
   }
 
-  private async onPostReactionAdd(reaction: IReaction) {
-    Logger.debug(this.debug, `[${SEvent.POST_REACTION_ADD}] ${reaction.uid} react to ${reaction.aid}`)
-    if (!reaction) return
-    if (reaction.aid === reaction.uid) return
-    const notiData = await Notification.create(reaction, NotificationType.POST_REACTION)
-    this.mewbook.to(reaction.aid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
-    Logger.success(`[${SEvent.POST_REACTION_ADD}] ${reaction.uid} react to ${reaction.aid}`)
+  private onPostReactionAdd(mewbook: Namespace) {
+    return async (reaction: IReaction) => {
+      Logger.debug(this.debug, `[${SEvent.POST_REACTION_ADD}] ${reaction.uid} react to ${reaction.aid}`)
+      if (!reaction) return
+      if (reaction.aid === reaction.uid) return
+      const notiData = await Notification.create(reaction, NotificationType.POST_REACTION)
+      mewbook.to(reaction.aid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.POST_REACTION_ADD}] ${reaction.uid} react to ${reaction.aid}`)
+    }
   }
 
-  private async onPostReactionUpdate(reaction: IReaction) {
-    Logger.debug(this.debug, `[${SEvent.POST_REACTION_UPDATE}] ${reaction.uid} update react to ${reaction.aid}`)
-    if (!reaction) return
-    if (reaction.aid === reaction.uid) return
-    const notiData = await Notification.getByDataID(reaction.id)
-    if (!notiData) return
-    notiData.data = reaction
-    await Notification.update(notiData.nid, { data: reaction })
-    this.mewbook.to(reaction.aid.toString()).emit(SEvent.NOTIFICATION_UPDATE, notiData)
-    Logger.success(`[${SEvent.POST_REACTION_UPDATE}] ${reaction.uid} update react to ${reaction.aid}`)
+  private onPostReactionUpdate(mewbook: Namespace) {
+    return async (reaction: IReaction) => {
+      Logger.debug(this.debug, `[${SEvent.POST_REACTION_UPDATE}] ${reaction.uid} update react to ${reaction.aid}`)
+      if (!reaction) return
+      if (reaction.aid === reaction.uid) return
+      const notiData = await Notification.getByDataID(reaction.id)
+      if (!notiData) return
+      notiData.data = reaction
+      await Notification.update(notiData.nid, { data: reaction })
+      mewbook.to(reaction.aid.toString()).emit(SEvent.NOTIFICATION_UPDATE, notiData)
+      Logger.success(`[${SEvent.POST_REACTION_UPDATE}] ${reaction.uid} update react to ${reaction.aid}`)
+    }
   }
 
-  private async onPostReactionRemove(reaction: IReaction) {
-    Logger.debug(this.debug, `[${SEvent.POST_REACTION_REMOVE}] ${reaction.uid} remove react to ${reaction.aid}`)
-    if (!reaction) return
-    if (reaction.aid === reaction.uid) return
-    const notiData = await Notification.getByDataID(reaction.id)
-    if (!notiData) return
-    await Notification.remove(notiData.nid)
-    this.mewbook.to(reaction.aid.toString()).emit(SEvent.NOTIFICATION_REMOVE, notiData)
-    Logger.success(`[${SEvent.POST_REACTION_REMOVE}] ${reaction.uid} remove react to ${reaction.aid}`)
+  private onPostReactionRemove(mewbook: Namespace) {
+    return async (reaction: IReaction) => {
+      Logger.debug(this.debug, `[${SEvent.POST_REACTION_REMOVE}] ${reaction.uid} remove react to ${reaction.aid}`)
+      if (!reaction) return
+      if (reaction.aid === reaction.uid) return
+      const notiData = await Notification.getByDataID(reaction.id)
+      if (!notiData) return
+      await Notification.remove(notiData.nid)
+      mewbook.to(reaction.aid.toString()).emit(SEvent.NOTIFICATION_REMOVE, notiData)
+      Logger.success(`[${SEvent.POST_REACTION_REMOVE}] ${reaction.uid} remove react to ${reaction.aid}`)
+    }
+  }
+
+  private onFriendRequest(mewbook: Namespace) {
+    return async(event: IFriendEvent) => {
+      Logger.debug(this.debug, `[${SEvent.FRIEND_REQUEST}] ${event.uid} request to ${event.fid}`)
+      if (!event) return
+      event.aid = event.fid
+      const notiData = await Notification.create(event, NotificationType.FRIEND_RECEIVE)
+      mewbook.to(event.fid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.FRIEND_REQUEST}] ${event.uid} request to ${event.fid}`)
+    }
+  }
+
+  private onFriendAccept(mewbook: Namespace) {
+    return async(event: IFriendEvent) => {
+      Logger.debug(this.debug, `[${SEvent.FRIEND_ACCEPT}] ${event.uid} accept to ${event.fid}`)
+      if (!event) return
+      event.aid = event.fid
+      const notiData = await Notification.create(event, NotificationType.FRIEND_ACCEPT)
+      mewbook.to(event.fid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.FRIEND_ACCEPT}] ${event.uid} accept to ${event.fid}`)
+    }
+  }
+
+  private onFriendRemove(mewbook: Namespace) {
+    return async(event: IFriendEvent) => {
+      Logger.debug(this.debug, `[${SEvent.FRIEND_REMOVE}] ${event.uid} remove to ${event.fid}`)
+      if (!event) return
+      event.aid = event.fid
+      const notiData = await Notification.create(event, NotificationType.FRIEND_REMOVE)
+      mewbook.to(event.fid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.FRIEND_REMOVE}] ${event.uid} remove to ${event.fid}`)
+    }
+  }
+
+  private onFriendReject(mewbook: Namespace) {
+    return async(event: IFriendEvent) => {
+      Logger.debug(this.debug, `[${SEvent.FRIEND_REJECT}] ${event.uid} reject to ${event.fid}`)
+      if (!event) return
+      event.aid = event.fid
+      const notiData = await Notification.create(event, NotificationType.FRIEND_REJECT)
+      mewbook.to(event.fid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.FRIEND_REJECT}] ${event.uid} reject to ${event.fid}`)
+    }
+  }
+
+  private onFriendCancel(mewbook: Namespace) {
+    return async(event: IFriendEvent) => {
+      Logger.debug(this.debug, `[${SEvent.FRIEND_CANCEL}] ${event.uid} cancel to ${event.fid}`)
+      if (!event) return
+      event.aid = event.fid
+      const notiData = await Notification.create(event, NotificationType.FRIEND_CANCEL)
+      mewbook.to(event.fid.toString()).emit(SEvent.NOTIFICATION_CREATE, notiData)
+      Logger.success(`[${SEvent.FRIEND_CANCEL}] ${event.uid} cancel to ${event.fid}`)
+    }
   }
 
   private async onAttachmentUpload(payload: Buffer, callback: Function) {
@@ -230,7 +288,7 @@ export class Socket {
       const has = await AttachmentLocal.has(attachment_id)
       Logger.debug(this.debug, `[${SEvent.ATTACHMENT_CACHE}] ${attachment_id}`)
       return callback({ cache: has, error: null })
-      
+
     } catch (error) {
       Logger.error(`[${SEvent.ATTACHMENT_CACHE}] ${error}`)
       return callback({ attachment: null, error: 'Failed to get image' })

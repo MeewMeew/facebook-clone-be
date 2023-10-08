@@ -92,7 +92,10 @@ export enum NotificationType {
   POST_REACTION = 'post_reaction',
   FRIEND_REQUEST = 'friend_request',
   FRIEND_ACCEPT = 'friend_accept',
-  FRIEND_REMOVE = 'friend_remove'
+  FRIEND_REMOVE = 'friend_remove',
+  FRIEND_REJECT = 'friend_reject',
+  FRIEND_CANCEL = 'friend_cancel',
+  FRIEND_RECEIVE = 'friend_receive',
 }
 
 export type ICommentNUser = IComment & { user: IUser }
@@ -115,10 +118,20 @@ export type IAttachmentStore = {
   attachment: string
 }
 
-export interface File extends Blob {
-  readonly lastModified: number;
-  readonly name: string;
-  readonly webkitRelativePath: string;
+export enum FriendEventType {
+  FRIEND_REQUEST = 'friend_request',
+  FRIEND_ACCEPT = 'friend_accept',
+  FRIEND_REMOVE = 'friend_remove',
+  FRIEND_REJECT = 'friend_reject',
+  FRIEND_CANCEL = 'friend_cancel',
+}
+
+export type IFriendEvent = {
+  id: number,
+  aid: number,
+  uid: number,
+  fid: number,
+  type: FriendEventType,
 }
 
 export enum SEvent {
@@ -135,8 +148,11 @@ export enum SEvent {
   POST_REACTION_REMOVE = 'post:reaction:remove',
 
   FRIEND_REQUEST = 'friend:request',
+  FRIEND_RECEIVE = 'friend:receive',
   FRIEND_ACCEPT = 'friend:accept',
   FRIEND_REMOVE = 'friend:remove',
+  FRIEND_REJECT = 'friend:reject',
+  FRIEND_CANCEL = 'friend:cancel',
   FRIEND_ONLINE = 'friend:online',
   FRIEND_OFFLINE = 'friend:offline',
 

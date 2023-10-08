@@ -5,8 +5,7 @@ import cors from 'cors'
 import { Server } from 'socket.io'
 import { Socket } from './socket.js'
 import { Logger } from './logger.js'
-import { AttachmentLocal } from './localdb.js'
-import { fileTypeFromBuffer } from 'file-type'
+import { fromBase64ToBuffer, blurImage } from './functions.js'
 export class App {
   private debug: boolean = false
   private port = process.env.PORT || 3000
@@ -29,20 +28,31 @@ export class App {
       })
     })
 
-    app.get('/attachment/:id', async (req, res) => {
+    app.get('/a/:id', async (req, res) => {
       const id = req.params.id
-      const attachment = await AttachmentLocal.read(id)
-      if (!attachment) return res.status(404).json({ message: 'Not found' })
-      const base64Data = attachment.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-      const type = await fileTypeFromBuffer(Buffer.from(base64Data, 'base64'))
-      if (!type) return res.status(404).json({ message: 'Not found' })
-      // stream
+      const result = await fromBase64ToBuffer(id)
+      
       res.writeHead(200, {
-        'Content-Type': type.mime,
-        'Content-Length': Buffer.from(base64Data, 'base64').length
+        'Content-Type': result.mime || 'image/png',
+        'Content-Length': result.buffer.length || 0
       })
-      res.end(Buffer.from(base64Data, 'base64'))
+      
+      if (!result) return res.end()
+      return res.end(result.buffer)
     })
+
+    app.get('/a/:id/blur', async (req, res) => {
+      const id = req.params.id
+      const result = await blurImage(id, 100)
+      res.writeHead(200, {
+        'Content-Type': result.mime || 'image/png',
+        'Content-Length': result.buffer.length || 0
+      })
+      if (!result) return res.end()
+      return res.end(result.buffer)
+    })
+
+
     
     const server = app.listen(this.port, () => {
       Logger.info(`[server] Server is running on port ${this.port}`)
@@ -71,4 +81,14 @@ new App(args)
 process.on('SIGINT', () => {
   Logger.info('[server] Server is shutting down')
   process.exit(0)
+})
+
+process.on('uncaughtException', (err) => {
+  Logger.error('[server] Uncaught exception', err)
+  process.exit(1)
+})
+
+process.on('unhandledRejection', (err) => {
+  Logger.error('[server] Unhandled rejection', err)
+  process.exit(1)
 })
