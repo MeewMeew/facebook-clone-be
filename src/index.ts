@@ -12,7 +12,6 @@ import { Logger } from './logger.js'
 import { fromBase64ToBuffer, blurImage } from './functions.js'
 export class App {
   private debug: boolean = false
-  private port = process.env.PORT || 3000
   constructor(args: string[]) {
     const app = express()
     
@@ -71,8 +70,10 @@ export class App {
       maxHttpBufferSize: 1e7
     }), this.debug)
 
-    server.listen(this.port, () => {
-      Logger.info(`[server] Server is listening on port ${this.port}`)
+    const ssl = this.loadSSL()
+    const PORT = ssl ? 443 : 80
+    server.listen(PORT, () => {
+      Logger.info(`[server] Server is listening on port ${PORT}`)
     })
   }
 
