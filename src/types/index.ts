@@ -113,6 +113,8 @@ export type IAttachmentItem = {
   small: string
 }
 
+export type FileSize = 'large' | 'medium' | 'small'
+
 export type IAttachmentStore = {
   id: string,
   attachment: string
@@ -132,6 +134,7 @@ export type IFriendEvent = {
   uid: number,
   fid: number,
   type: FriendEventType,
+  created_at: number
 }
 
 export enum SEvent {
@@ -164,7 +167,6 @@ export enum SEvent {
   ATTACHMENT_UPLOAD = 'attachment:upload',
   ATTACHMENT_REMOVE = 'attachment:remove',
   ATTACHMENT_GET = 'attachment:get',
-  ATTACHMENT_CACHE = 'attachment:cache',
 }
 
 export enum LTitle {

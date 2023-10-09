@@ -1,8 +1,9 @@
-import fs from 'fs'
-import path from 'path'
+import fs from 'fs-extra';
+import path from 'path';
+import { Logger } from '../helper/logger.js';
+import { LTitle } from '../types/index.js';
+import { uniqBy } from 'lodash-es';
 
-import { Logger } from './logger.js'
-import { LTitle } from './types.js'
 
 type Data = {
   attachment: string
@@ -22,16 +23,16 @@ export class AttachmentLocal {
   public static async write(id: string, attachment: string) {
     const dir = await this.create()
     let data = JSON.parse(fs.readFileSync(dir, 'utf-8')) as Data[]
-    data = [...data, { id, attachment }]
-    fs.writeFileSync(dir, JSON.stringify(data))
-    Logger.info(`[${LTitle.ATTACHMENT_FILE_WRITE}] ${id}`)
+    data = uniqBy([...data, { id, attachment }], 'id')
+    fs.writeFileSync(dir, JSON.stringify(data, null, 2))
+    Logger.info(`[${LTitle.ATTACHMENT_FILE_WRITE}]`, id)
   }
 
   public static async read(id: string) {
     const dir = await this.create()
     const data = JSON.parse(fs.readFileSync(dir, 'utf-8')) as Data[]
     const { attachment } = data.find((e: { id: string }) => e.id === id)!
-    Logger.info(`[${LTitle.ATTACHMENT_FILE_READ}] ${id}`)
+    Logger.info(`[${LTitle.ATTACHMENT_FILE_READ}]`, id)
     return attachment
   }
 
@@ -39,13 +40,13 @@ export class AttachmentLocal {
     const dir = await this.create()
     const data = JSON.parse(fs.readFileSync(dir, 'utf-8')) as Data[]
     const attachment = data.find((e: { id: string }) => e.id === id)!
-    Logger.info(`[${LTitle.ATTACHMENT_FILE_HAS_ID}] ${id}`)
+    Logger.info(`[${LTitle.ATTACHMENT_FILE_HAS_ID}]`, id)
     return !!attachment
   }
 
   public static async clean() {
     const dir = await this.create()
     fs.writeFileSync(dir, '[]')
-    Logger.info(`[${LTitle.ATTACHMENT_FILE_CREATE}] ${dir}`)
+    Logger.info(`[${LTitle.ATTACHMENT_FILE_CREATE}]`, dir)
   }
 }

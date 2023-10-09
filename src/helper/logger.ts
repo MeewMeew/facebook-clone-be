@@ -1,5 +1,5 @@
-import chalk from "chalk"
-import moment from 'moment-timezone'
+import chalk from 'chalk';
+import moment from 'moment-timezone';
 
 export class Logger {
   public static info(...messages: any[]) {

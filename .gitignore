@@ -3,4 +3,7 @@ node_modules/
 yarn.lock
 build/
 attachments.json
+dev_attachments.json
 ssl/
+tmp/
+src/test.ts

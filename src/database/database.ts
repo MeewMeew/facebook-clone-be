@@ -1,8 +1,18 @@
-import { getDocs, collection, query, where, doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, deleteDoc, addDoc } from "firebase/firestore";
-import { v4 as uuidv4, validate } from 'uuid'
-import { db } from "./firebase.js";
-import { IFriend, NotificationType, INotification } from "./types.js";
-
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  or,
+  query,
+  setDoc,
+  updateDoc,
+  where
+  } from 'firebase/firestore';
+import { db } from './firebase.js';
+import { IFriend, INotification, NotificationType } from '../types/index.js';
+import { v4 as uuidv4, validate } from 'uuid';
 
 export class Friend {
   public static async getByUID(uid: number) {
@@ -58,5 +68,31 @@ export class Notification {
     if (notificationDocs.empty) return null
     const notificationData = notificationDocs.docs[0].data() as INotification
     return notificationData
+  }
+
+  public static async getByData(...data:  [key: string, value: any][]) {
+    const notificationRef = collection(db, 'notifications')
+    const conditions = data.map(([key, value]) => where(`data.${key}`, '==', value))
+    const notificationQuery = query(notificationRef, ...conditions)
+    const notificationDocs = await getDocs(notificationQuery)
+    if (notificationDocs.empty) return null
+    const notificationData = notificationDocs.docs[0].data() as INotification
+    return notificationData
+  }
+}
+
+export class Attachment {
+  public static async get(id: string) {
+    if (!validate(id)) return null
+    return await getDoc(doc(db, 'dev_attachments', id))
+  }
+
+  public static async getBySizeID(id: string) {
+    const attachmentRef = collection(db, 'attachments')
+    const attachmentQuery = query(attachmentRef, or(where('attachments.large', '==', id), where('attachments.medium', '==', id), where('attachments.small', '==', id)))
+    const attachmentDocs = await getDocs(attachmentQuery)
+    if (attachmentDocs.empty) return null
+    const attachmentData = attachmentDocs.docs[0].data()
+    return attachmentData
   }
 }
