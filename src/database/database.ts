@@ -96,3 +96,13 @@ export class Attachment {
     return attachmentData
   }
 }
+
+export class User {
+  public static async toggleState(id: number, state: boolean) {
+    const userRef = collection(db, 'users')
+    const userQuery = query(userRef, where('id', '==', id))
+    const userDocs = await getDocs(userQuery)
+    const userDoc = userDocs.docs[0]
+    await updateDoc(userDoc.ref, { isOnline: state || !userDoc.data().isOnline })
+  }
+}

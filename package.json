@@ -1,6 +1,6 @@
 {
   "name": "fb-be",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Simple backend for Facebook Clone",
   "main": "build/index.js",
   "repository": "https://github.com/MeewMeew/facebook-clone-be",

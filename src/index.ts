@@ -16,10 +16,14 @@ export class App {
   constructor(args: string[]) {
     const app = express()
 
-    app.use(cors({
-      origin: process.env.CORS || '*',
+    const corsOrigin = process.env.CORS ? JSON.parse(process.env.CORS) : '*'
+    const corsOptions: cors.CorsOptions = {
+      origin: corsOrigin,
       methods: ['GET', 'POST']
-    }))
+    }
+
+
+    app.use(cors(corsOptions))
 
     app.use(express.json())
     app.use(express.urlencoded({ extended: true }))
@@ -36,7 +40,7 @@ export class App {
       Logger.warn(`[server] Debug mode is enabled`)
     }
 
-    this.createSocket(server)
+    this.createSocket(server, corsOptions)
 
     const ssl = this.loadSSL()
     const PORT = ssl ? 443 : 80
@@ -45,12 +49,9 @@ export class App {
     })
   }
 
-  private createSocket(server: http.Server | https.Server) {
+  private createSocket(server: http.Server | https.Server, corsOptions: cors.CorsOptions = {}) {
     const io = new Server<ServerToClientEvents, ClientToServerEvents>(server, {
-      cors: {
-        origin: process.env.CORS || '*',
-        methods: ['GET', 'POST']
-      },
+      cors: corsOptions,
       maxHttpBufferSize: 1e7
     })
 
