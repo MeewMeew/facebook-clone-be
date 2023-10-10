@@ -205,9 +205,9 @@ export class Listener {
   }
 
   public static async onAttachmentUpload(payload: Buffer, callback: Function) {
-    const attachment = await Functions.upload(payload)
-    if (!attachment) return callback({ attachment: null, error: 'Cannot upload image' })
-    return callback({ attachment, error: null })
+    const attachments = await Functions.upload(payload)
+    if (!attachments) return callback({ attachment: null, error: 'Cannot upload image' })
+    return callback({ attachments, error: null })
   }
 
   public static onAttachmentRemove(attachment: string) {
