@@ -3,6 +3,7 @@ import { Listener } from './listener.js';
 import { SEvent } from '../types/index.js';
 import { SocketServer } from '../types/socket.js';
 import 'dotenv/config';
+import { MessengerEvent } from '../types/messenger.js';
 
 
 export class Socket {
@@ -10,7 +11,6 @@ export class Socket {
     const mewbook = io.of('/mewbook')
   
     mewbook.on('connection', (socket) => {
-
       // when user connect to socket
       socket.on(SEvent.USER_ONLINE, Listener.onOnline(socket, mewbook))
       socket.on(SEvent.USER_OFFLINE, Listener.onDisconnect(socket, mewbook))
@@ -33,6 +33,10 @@ export class Socket {
       socket.on(SEvent.ATTACHMENT_UPLOAD, Listener.onAttachmentUpload)
       socket.on(SEvent.ATTACHMENT_REMOVE, Listener.onAttachmentRemove)
       socket.on(SEvent.ATTACHMENT_GET, Listener.onAttachmentGet)
+
+      // with messenger
+      socket.on(MessengerEvent.SEND_MESSAGE, Listener.onSendMessage(mewbook))
     })
+
   }
 }

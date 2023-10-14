@@ -1,10 +1,11 @@
 import { Namespace, Server } from 'socket.io';
 import { type IAttachmentItem,type IComment, type IFriendEvent, type INotification,type IReaction, SEvent } from "./index.js";
+import { InComingMessage, MessengerEvent } from './messenger.js';
 
 type CallbackAttachmentUpload = (result: { error: unknown, attachments: IAttachmentItem }) => void
 type CallbackAttachmentGet = (error: unknown) => void
 
-export interface ServerToClientEvents {
+export interface ClientToServerCommonEvents {
   [SEvent.SOCKET_CONNECT]: () => void
   [SEvent.SOCKET_DISCONNECT]: () => void
 
@@ -30,9 +31,12 @@ export interface ServerToClientEvents {
   [SEvent.ATTACHMENT_UPLOAD]: (attachment: Buffer, callback: CallbackAttachmentUpload) => void
   [SEvent.ATTACHMENT_REMOVE]: (attachment_id: string) => void
   [SEvent.ATTACHMENT_GET]: (attachment_id: string, callback: CallbackAttachmentGet) => void
+
+  [MessengerEvent.SEND_MESSAGE]: (message: InComingMessage, callback: (error: unknown) => void) => void
+  [MessengerEvent.BOARDCAST]: (conversation_id: string, data: any) => void
 }
 
-export interface ClientToServerEvents {
+export interface ServerToClientCommonEvents {
   'connect': () => void
   'disconnect': () => void
 
@@ -43,7 +47,10 @@ export interface ClientToServerEvents {
 
   [SEvent.FRIEND_ONLINE]: (userID: number) => void
   [SEvent.FRIEND_OFFLINE]: (userID: number) => void
+
+  [MessengerEvent.RECEIVE_MESSAGE]: (message: InComingMessage) => void
+  [MessengerEvent.BOARDCAST]: (conversation_id: string, data: any) => void
 }
 
-export type SocketServer = Server<ServerToClientEvents, ClientToServerEvents>
-export type SocketNamespace = Namespace<ServerToClientEvents, ClientToServerEvents>
+export type SocketServer = Server<ClientToServerCommonEvents, ServerToClientCommonEvents>
+export type SocketNamespace = Namespace<ClientToServerCommonEvents, ServerToClientCommonEvents>

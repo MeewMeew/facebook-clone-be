@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { Friend, Notification } from '../database/database.js';
+import { Friend, Notification, Messenger } from '../database/database.js';
 import { Functions } from '../helper/functions.js';
 import {
   IComment,
@@ -12,8 +12,11 @@ import { Logger } from '../helper/logger.js';
 import { Socket } from 'socket.io';
 import { SocketNamespace } from '../types/socket.js';
 import 'dotenv/config';
+import { InComingMessage, MessengerEvent } from '../types/messenger.js';
 
 export class Listener {
+  // Mewbook
+
   public static onOnline(socket: Socket, io: SocketNamespace) {
     return async (userID: number) => {
       try {
@@ -218,5 +221,28 @@ export class Listener {
     const attachment = await Functions.download(id)
     if (attachment) return callback()
     else return callback('Cannot get attachment')
+  }
+
+  // Messenger
+
+  public static onSendMessage(io: SocketNamespace) {
+    return async (message: InComingMessage, callback: (error: unknown) => void) => {
+      try {
+        const conversation = await Messenger.get(message.cid)
+        if (!conversation) throw new Error('Cannot get conversation')
+        const messageData = await Messenger.insert(conversation.id, message)
+        if (!messageData) throw new Error('Cannot insert message')
+        for (const uid of conversation.participants) {
+          if (uid === message.sid) continue
+          if (message.type === 'boardcast') io.to(uid.toString()).emit(MessengerEvent.BOARDCAST, messageData.cid, messageData)
+          else io.to(uid.toString()).emit(MessengerEvent.RECEIVE_MESSAGE, messageData)
+          callback(null)
+        }
+        Logger.success(`[${MessengerEvent.SEND_MESSAGE}] ${message.sid} send message to ${message.cid}`)
+      } catch (error) {
+        Logger.error(error)
+        callback(error)
+      }
+    }
   }
 }

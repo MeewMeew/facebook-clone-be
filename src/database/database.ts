@@ -1,4 +1,5 @@
 import {
+  addDoc,
   collection,
   deleteDoc,
   doc,
@@ -9,10 +10,12 @@ import {
   setDoc,
   updateDoc,
   where
-  } from 'firebase/firestore';
+} from 'firebase/firestore';
 import { db } from './firebase.js';
 import { IFriend, INotification, NotificationType } from '../types/index.js';
+import { Conversation, InComingMessage } from '../types/messenger.js';
 import { v4 as uuidv4, validate } from 'uuid';
+import { Logger } from '../helper/logger.js';
 
 export class Friend {
   public static async getByUID(uid: number) {
@@ -70,7 +73,7 @@ export class Notification {
     return notificationData
   }
 
-  public static async getByData(...data:  [key: string, value: any][]) {
+  public static async getByData(...data: [key: string, value: any][]) {
     const notificationRef = collection(db, 'notifications')
     const conditions = data.map(([key, value]) => where(`data.${key}`, '==', value))
     const notificationQuery = query(notificationRef, ...conditions)
@@ -104,5 +107,42 @@ export class User {
     const userDocs = await getDocs(userQuery)
     const userDoc = userDocs.docs[0]
     await updateDoc(userDoc.ref, { isOnline: state || !userDoc.data().isOnline })
+  }
+}
+
+export class Messenger {
+  public static async get(id: string): Promise<Conversation | false> {
+    try {
+      if (validate(id)) {
+        const conversationRef = doc(db, 'conversations', id)
+        const conversationSnap = await getDoc(conversationRef)
+        const conversation = conversationSnap.data()
+        return conversation as Conversation
+      } else throw new Error('Invalid type')
+    } catch (error) {
+      Logger.error('Messenger', error)
+      return false
+    }
+  }
+
+  public static async insert(cid: string, message: InComingMessage) {
+    try {
+      const messageRef = doc(db, 'conversations', cid, 'messages', message.id)
+      await setDoc(messageRef, message)
+      return message
+    } catch (error) {
+      Logger.error('Messenger insert', error)
+    }
+  }
+
+  public static async update(cid: string, mid: string, data: Partial<InComingMessage>) {
+    try {
+      const messageRef = doc(db, 'conversations', cid, 'messages', mid)
+      await updateDoc(messageRef, data)
+      return true
+    } catch (error) {
+      Logger.error('Messenger update', error)
+      return false
+    }
   }
 }
