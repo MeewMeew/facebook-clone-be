@@ -15,6 +15,7 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "build",
+    "resolveJsonModule": true,
     "rootDir": "src",
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,

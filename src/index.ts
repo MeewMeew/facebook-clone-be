@@ -8,6 +8,7 @@ import { ClientToServerCommonEvents, ServerToClientCommonEvents } from './types/
 import { Logger } from './helper/logger.js';
 import { Server } from 'socket.io';
 import { Socket } from './socket/socket.js';
+import packageJson from '../package.json' assert { type: 'json' };
 import 'dotenv/config';
 
 
@@ -28,7 +29,7 @@ export class App {
     app.use(express.json())
     app.use(express.urlencoded({ extended: true }))
     app.set('json spaces', 2)
-    app.get('/', (req, res) => res.json({ message: 'Hello World' }))
+    app.get('/', (req, res) => res.json({ message: 'Hello World', version: packageJson.version }))
     app.use('/a', AttachmentRouter)
     
     
