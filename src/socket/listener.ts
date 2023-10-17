@@ -235,7 +235,7 @@ export class Listener {
         for (const uid of conversation.participants) {
           if (uid === message.sid) continue
           if (message.type === 'boardcast') io.to(uid.toString()).emit(MessengerEvent.BOARDCAST, messageData.cid, messageData)
-          else io.to(uid.toString()).emit(MessengerEvent.RECEIVE_MESSAGE, messageData)
+          else io.to(uid.toString()).emit(MessengerEvent.RECEIVE_MESSAGE, messageData, conversation)
           callback(null)
         }
         Logger.success(`[${MessengerEvent.SEND_MESSAGE}] ${message.sid} send message to ${message.cid}`)

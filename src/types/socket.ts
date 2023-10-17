@@ -1,6 +1,6 @@
 import { Namespace, Server } from 'socket.io';
 import { type IAttachmentItem,type IComment, type IFriendEvent, type INotification,type IReaction, SEvent } from "./index.js";
-import { InComingMessage, MessengerEvent } from './messenger.js';
+import { Conversation, InComingMessage, MessengerEvent } from './messenger.js';
 
 type CallbackAttachmentUpload = (result: { error: unknown, attachments: IAttachmentItem }) => void
 type CallbackAttachmentGet = (error: unknown) => void
@@ -48,7 +48,7 @@ export interface ServerToClientCommonEvents {
   [SEvent.FRIEND_ONLINE]: (userID: number) => void
   [SEvent.FRIEND_OFFLINE]: (userID: number) => void
 
-  [MessengerEvent.RECEIVE_MESSAGE]: (message: InComingMessage) => void
+  [MessengerEvent.RECEIVE_MESSAGE]: (message: InComingMessage, conversation?: Conversation) => void
   [MessengerEvent.BOARDCAST]: (conversation_id: string, data: any) => void
 }
 

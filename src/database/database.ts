@@ -128,7 +128,9 @@ export class Messenger {
   public static async insert(cid: string, message: InComingMessage) {
     try {
       const messageRef = doc(db, 'conversations', cid, 'messages', message.id)
+      const conversationRef = doc(db, 'conversations', cid)
       await setDoc(messageRef, message)
+      await updateDoc(conversationRef, { timestamp: message.timestamp, seen: false })
       return message
     } catch (error) {
       Logger.error('Messenger insert', error)
@@ -138,6 +140,8 @@ export class Messenger {
   public static async update(cid: string, mid: string, data: Partial<InComingMessage>) {
     try {
       const messageRef = doc(db, 'conversations', cid, 'messages', mid)
+      const conversationRef = doc(db, 'conversations', cid)
+      await updateDoc(conversationRef, { timestamp: Date.now() })
       await updateDoc(messageRef, data)
       return true
     } catch (error) {

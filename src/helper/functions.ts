@@ -17,12 +17,12 @@ export class Functions {
     const id = uuidv4()
     const type = await fileTypeFromBuffer(buffer)
     const form = new FormData()
-  
+
     form.append('chat_id', process.env.TELEGRAM_CHAT_ID!)
     form.append('photo', buffer, { filename: `${id}.${type!.ext}` })
-  
+
     Logger.debug(debug, `[upload] Uploading ${id}.${type!.ext} to Telegram...`)
-  
+
     try {
       const res = await axios({
         method: 'post',
@@ -32,14 +32,14 @@ export class Functions {
           'Content-Type': `multipart/form-data; boundary=${form.getBoundary()}`
         }
       })
-  
+
       if (!res.data.ok) {
         Logger.error(`[upload] ${res.data.description}`)
         return null
       }
-  
+
       Logger.debug(debug, `[upload] Uploaded ${id}.${type!.ext} to Telegram`)
-  
+
       const photos = (res.data.result.photo as any[]).sort((a, b) => b.file_size - a.file_size).slice(0, 3)
       const attachments = {} as Record<FileSize, any>
       photos.forEach((photo, index) => {
@@ -49,7 +49,7 @@ export class Functions {
           Logger.info(`[upload:large] ${attachments.large}`)
         }
         if (category === 'medium') {
-          attachments.medium =  photo.file_id
+          attachments.medium = photo.file_id
           Logger.info(`[upload:medium] ${attachments.medium}`)
         }
         if (category === 'small') {
@@ -57,9 +57,9 @@ export class Functions {
           Logger.info(`[upload:small] ${attachments.small}`)
         }
       })
-  
+
       Logger.success(`[upload] Uploaded ${id}.${type!.ext} to Telegram`)
-  
+
       return attachments
     } catch (err) {
       Logger.error(`[upload] ${err}`)
@@ -68,7 +68,7 @@ export class Functions {
   }
 
   public static async download(id: string) {
-    try {      
+    try {
       const has = await AttachmentLocal.has(id)
       if (!has) {
         Logger.error(`[download] Attachment ${id} not found`)
@@ -103,25 +103,24 @@ export class Functions {
     }
   }
 
-
-  public static async b2b(base64: string): Promise<IBuffer> {
-    const buffer = Buffer.from(base64, 'base64')
-    const type = await fileTypeFromBuffer(buffer)
-    if (!type) return {} as unknown as any
-    return {
-      mime: type.mime,
-      buffer: buffer
-    }
+  public static buffer(base64: string): Buffer {
+    return Buffer.from(base64, 'base64')
   }
-  
-  public static async  blur(base64: string, sigma: number = 60, quality: number = 20): Promise<IBuffer> {
-    const result = await this.b2b(base64)
-    if (!result) return {} as unknown as any
-    const image = sharp(result.buffer)
-    const buffer = await image.withMetadata().png({ quality }).blur(sigma).toBuffer()
-    return {
-      mime: result.mime,
-      buffer: buffer
-    }
+
+  public static async metatdata(buffer: Buffer): Promise<sharp.Metadata> {
+    const image = sharp(buffer).withMetadata()
+    return image.metadata()
+  }
+
+  public static compress(buffer: Buffer, quality: number = 50): sharp.Sharp {
+    const image = sharp(buffer).withMetadata()
+    const compress = image.webp({ quality })
+    return compress
+  }
+
+  public static blur(buffer: Buffer, sigma: number = 60): sharp.Sharp {
+    const compress = this.compress(buffer)
+    const blur = compress.blur(sigma)
+    return blur
   }
 }
