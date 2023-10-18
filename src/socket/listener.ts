@@ -1,5 +1,5 @@
 import _ from 'lodash';
-import { Friend, Notification, Messenger } from '../database/database.js';
+import { Friend, Notification, Messenger, User } from '../database/database.js';
 import { Functions } from '../helper/functions.js';
 import {
   IComment,
@@ -15,8 +15,6 @@ import 'dotenv/config';
 import { InComingMessage, MessengerEvent } from '../types/messenger.js';
 
 export class Listener {
-  // Mewbook
-
   public static onOnline(socket: Socket, io: SocketNamespace) {
     return async (userID: number) => {
       try {
@@ -46,6 +44,7 @@ export class Listener {
         for (const f of fs.friends) {
           io.to(f).emit(SEvent.FRIEND_OFFLINE, userID)
         }
+        await User.toggleState(userID, false)
         Logger.info(`[${SEvent.USER_OFFLINE}] ID`, userID)
       } catch (error) {
         Logger.error(error)

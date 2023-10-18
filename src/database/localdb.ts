@@ -32,6 +32,7 @@ export class AttachmentLocal {
     const dir = await this.create()
     const data = JSON.parse(fs.readFileSync(dir, 'utf-8')) as Data[]
     const { attachment } = data.find((e: { id: string }) => e.id === id)!
+    if (!attachment) return null
     Logger.info(`[${LTitle.ATTACHMENT_FILE_READ}]`, id)
     return attachment
   }

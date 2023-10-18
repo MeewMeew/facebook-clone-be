@@ -19,6 +19,22 @@ router.get('/:id', async (req, res) => {
   return res.end(compress)
 })
 
+router.get('/:id/compress/:rate', async (req, res) => {
+  const id = req.params.id
+  const rate = +req.params.rate || 50
+  let result = await Functions.download(id)
+  if (!result) return res.send('Not found')
+  const buffer = Functions.buffer(result)
+  const compress = await Functions.compress(buffer, rate).toBuffer()
+  const metadata = await Functions.metatdata(compress)
+  res.writeHead(200, {
+    'Content-Type': `image/${metadata.format}`,
+    'Content-Length': compress.length
+  })
+  Logger.info('[image:compression]', metadata.format, compress.length, 'bytes')
+  return res.end(compress)
+})
+
 router.get('/:id/blur', async (req, res) => {
   const id = req.params.id
   let result = await Functions.download(id)
